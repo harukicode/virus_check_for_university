@@ -2,9 +2,13 @@ from flask import Flask, request
 from dotenv import load_dotenv
 import os
 import requests
+from flask_cors import CORS
 
 load_dotenv()
+
+
 app = Flask(__name__)
+CORS(app)
 
 
 VIRUSTOTAL_API_KEY = os.getenv('VIRUSTOTAL_API_KEY')
