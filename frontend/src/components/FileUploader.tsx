@@ -62,7 +62,7 @@ export default function FileUploader() {
   };
 
   const pollForResults = async (analysisId: string) => {
-    const maxAttempts = 30; // 30 попыток
+    const maxAttempts = 30; 
     let attempts = 0;
 
     const poll = async (): Promise<void> => {
