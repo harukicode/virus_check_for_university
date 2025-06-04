@@ -4,26 +4,17 @@ import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Upload, Loader2, AlertTriangle, Shield } from 'lucide-react';
 
-// Types
+// Types - обновленные под новый API
 type ScanStatus = 'idle' | 'uploading' | 'scanning' | 'completed' | 'error';
-
-type ScanStats = {
-  "confirmed-timeout": number;
-  failure: number;
-  harmless: number;
-  malicious: number;
-  suspicious: number;
-  timeout: number;
-  "type-unsupported": number;
-  undetected: number;
-}
 
 type ReportResponse = {
   status: string;
-  stats: ScanStats;
   is_safe: boolean;
-  scan_date: number;
   engines_count: number;
+  threats_found: number;
+  malicious: number;
+  suspicious: number;
+  clean: number;
 }
 
 type UploadResponse = {
@@ -75,7 +66,6 @@ export default function FileUploader() {
           return;
         }
 
-        
         attempts++;
         if (attempts < maxAttempts) {
           setTimeout(poll, 2000); 
@@ -174,14 +164,17 @@ export default function FileUploader() {
             <div>
               <span className="font-medium">Engines scanned:</span> {report.engines_count}
             </div>
-            <div>
-              <span className="font-medium">Malicious:</span> {report.stats.malicious}
+            <div className={report.threats_found > 0 ? "text-red-600" : "text-green-600"}>
+              <span className="font-medium">Threats found:</span> {report.threats_found}
             </div>
-            <div>
-              <span className="font-medium">Suspicious:</span> {report.stats.suspicious}
+            <div className={report.malicious > 0 ? "text-red-600" : ""}>
+              <span className="font-medium">Malicious:</span> {report.malicious}
             </div>
-            <div>
-              <span className="font-medium">Clean:</span> {report.stats.undetected}
+            <div className={report.suspicious > 0 ? "text-orange-600" : ""}>
+              <span className="font-medium">Suspicious:</span> {report.suspicious}
+            </div>
+            <div className="text-green-600">
+              <span className="font-medium">Clean:</span> {report.clean}
             </div>
           </div>
         </div>

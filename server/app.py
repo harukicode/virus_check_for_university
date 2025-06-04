@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 import os
 import requests
@@ -6,10 +6,8 @@ from flask_cors import CORS
 
 load_dotenv()
 
-
 app = Flask(__name__)
 CORS(app)
-
 
 VIRUSTOTAL_API_KEY = os.getenv('VIRUSTOTAL_API_KEY')
 
@@ -19,21 +17,19 @@ def upload_file():
 
     file_content = file.read()
     if len(file_content) > 32 * 1024 * 1024:
-        return 'File size exceeds 32 MB', 413
+        return jsonify({"error": "File size exceeds 32 MB"}), 413
 
     file.seek(0)
 
     url = "https://www.virustotal.com/api/v3/files"
-    headers = {
-        "x-apikey": VIRUSTOTAL_API_KEY
-    }
-    files = {
-        "file": file
-    }
+    headers = {"x-apikey": VIRUSTOTAL_API_KEY}
+    files = {"file": file}
 
     response = requests.post(url, headers=headers, files=files)
 
-    return {"analysis_id": response.json().get('data', {}).get('id', '')}, response.status_code
+    return jsonify({
+        "analysis_id": response.json().get('data', {}).get('id', '')
+    }), response.status_code
 
 
 @app.route('/report/<analysis_id>', methods=['GET'])
@@ -44,21 +40,32 @@ def get_report(analysis_id):
     response = requests.get(url, headers=headers)
 
     if response.status_code == 404:
-        return {"error": "Analysis not found"}, 404
+        return jsonify({"error": "Analysis not found"}), 404
 
     data = response.json()
-
     attributes = data.get('data', {}).get('attributes', {})
     stats = attributes.get('stats', {})
     status = attributes.get('status', 'unknown')
 
-    return {
+    malicious = stats.get('malicious', 0)
+    suspicious = stats.get('suspicious', 0)
+    clean = stats.get('undetected', 0)
+    harmless = stats.get('harmless', 0)
+    
+    engines_count = malicious + suspicious + clean + harmless
+    
+    threats_found = malicious + suspicious
+
+    return jsonify({
         "status": status,
-        "stats": stats,
-        "is_safe": stats.get('malicious', 0) == 0 and stats.get('suspicious', 0) == 0,
-        "scan_date": attributes.get('date'),
-        "engines_count": sum(stats.values())
-    }
+        "is_safe": threats_found == 0,
+        "engines_count": engines_count,
+        "threats_found": threats_found,
+        "malicious": malicious,
+        "suspicious": suspicious,
+        "clean": clean
+    })
+
 
 if __name__ == '__main__':
     app.run(debug=True)
