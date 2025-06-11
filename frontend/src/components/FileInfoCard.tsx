@@ -9,7 +9,7 @@ import {
   Clock,
   Zap
 } from 'lucide-react'
-import { Progress } from './ScanningProgress'
+import { Progress } from './progress'
 
 interface FileInfo {
   name: string

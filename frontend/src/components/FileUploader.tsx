@@ -55,11 +55,12 @@ export default function FileUploader() {
       setProgress(0);
       interval = setInterval(() => {
         setProgress(prev => {
-          if (prev >= 100) {
+          const newProgress = prev >= 100 ? 100 : prev + 10;
+          console.log('Upload progress:', newProgress);
+          if (newProgress >= 100) {
             clearInterval(interval);
-            return 100;
           }
-          return prev + 10;
+          return newProgress;
         });
       }, 200);
     } else if (status === 'scanning') {
