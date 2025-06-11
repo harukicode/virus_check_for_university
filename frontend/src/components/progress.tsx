@@ -1,5 +1,5 @@
 import * as React from "react"
-import { cn } from "@/lib/utils"
+import { clsx } from "clsx"
 
 const Progress = React.forwardRef<
   HTMLDivElement,
@@ -8,6 +8,7 @@ const Progress = React.forwardRef<
     max?: number
   }
 >(({ className, value = 0, max = 100, ...props }, ref) => {
+  // Убеждаемся, что percentage находится в диапазоне 0-100
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100)
   
   return (
@@ -17,7 +18,7 @@ const Progress = React.forwardRef<
       aria-valuemax={max}
       aria-valuemin={0}
       aria-valuenow={value}
-      className={cn(
+      className={clsx(
         "relative h-2 w-full overflow-hidden rounded-full bg-gray-200",
         className
       )}

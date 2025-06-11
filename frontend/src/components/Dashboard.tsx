@@ -1,106 +1,67 @@
-import { useState } from 'react'
-import { 
-  Shield, 
-  AlertTriangle, 
-  FileCheck, 
-  Clock, 
+import { useState } from "react";
+import {
+  Shield,
+  AlertTriangle,
+  FileCheck,
+  Clock,
   Eye,
   Download,
   Trash2,
   Calendar,
-  Filter
-} from 'lucide-react'
-import { Button } from '@/components/ui/button'
+  Filter,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ScanHistory {
-  id: string
-  fileName: string
-  scanDate: Date
-  status: 'safe' | 'malware' | 'suspicious'
-  threatsFound: number
-  fileSize: number
-  scanDuration: number
+  id: string;
+  fileName: string;
+  scanDate: Date;
+  status: "safe" | "malware" | "suspicious";
+  threatsFound: number;
+  fileSize: number;
+  scanDuration: number;
 }
 
-const mockHistory: ScanHistory[] = [
-  {
-    id: '1',
-    fileName: 'document.pdf',
-    scanDate: new Date('2025-01-10'),
-    status: 'safe',
-    threatsFound: 0,
-    fileSize: 2.5,
-    scanDuration: 15
-  },
-  {
-    id: '2',
-    fileName: 'suspicious_file.exe',
-    scanDate: new Date('2025-01-09'),
-    status: 'malware',
-    threatsFound: 3,
-    fileSize: 12.8,
-    scanDuration: 28
-  },
-  {
-    id: '3',
-    fileName: 'image.jpg',
-    scanDate: new Date('2025-01-08'),
-    status: 'safe',
-    threatsFound: 0,
-    fileSize: 0.8,
-    scanDuration: 8
-  },
-  {
-    id: '4',
-    fileName: 'presentation.pptx',
-    scanDate: new Date('2025-01-07'),
-    status: 'suspicious',
-    threatsFound: 1,
-    fileSize: 5.2,
-    scanDuration: 22
-  },
-  {
-    id: '5',
-    fileName: 'archive.zip',
-    scanDate: new Date('2025-01-06'),
-    status: 'safe',
-    threatsFound: 0,
-    fileSize: 15.3,
-    scanDuration: 45
-  }
-]
+const mockHistory: ScanHistory[] = [];
 
 export default function Dashboard() {
-  const [history, setHistory] = useState(mockHistory)
-  const [filter, setFilter] = useState<'all' | 'safe' | 'malware' | 'suspicious'>('all')
+  const [history, setHistory] = useState(mockHistory);
+  const [filter, setFilter] = useState<
+    "all" | "safe" | "malware" | "suspicious"
+  >("all");
 
   const stats = {
     totalScans: history.length,
-    safeFiles: history.filter(h => h.status === 'safe').length,
-    threatsDetected: history.filter(h => h.status === 'malware').length,
-    avgScanTime: Math.round(history.reduce((acc, h) => acc + h.scanDuration, 0) / history.length)
-  }
+    safeFiles: history.filter((h) => h.status === "safe").length,
+    threatsDetected: history.filter((h) => h.status === "malware").length,
+    avgScanTime: Math.round(
+      history.reduce((acc, h) => acc + h.scanDuration, 0) / history.length
+    ),
+  };
 
-  const filteredHistory = filter === 'all' 
-    ? history 
-    : history.filter(h => h.status === filter)
+  const filteredHistory =
+    filter === "all" ? history : history.filter((h) => h.status === filter);
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'safe': return 'text-green-600 bg-green-50 border-green-200'
-      case 'malware': return 'text-red-600 bg-red-50 border-red-200'
-      case 'suspicious': return 'text-orange-600 bg-orange-50 border-orange-200'
-      default: return 'text-gray-600 bg-gray-50 border-gray-200'
+      case "safe":
+        return "text-green-600 bg-green-50 border-green-200";
+      case "malware":
+        return "text-red-600 bg-red-50 border-red-200";
+      case "suspicious":
+        return "text-orange-600 bg-orange-50 border-orange-200";
+      default:
+        return "text-gray-600 bg-gray-50 border-gray-200";
     }
-  }
+  };
 
   const formatFileSize = (size: number) => {
-    return `${size.toFixed(1)} MB`
-  }
+    return `${size.toFixed(1)} MB`;
+  };
 
   const handleRemoveItem = (id: string) => {
-    setHistory(prev => prev.filter(item => item.id !== id))
-  }
+    setHistory((prev) => prev.filter((item) => item.id !== id));
+  };
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -174,8 +135,8 @@ export default function Dashboard() {
             <h2 className="text-xl font-semibold">Scan History</h2>
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-gray-500" />
-              <select 
-                value={filter} 
+              <select
+                value={filter}
                 onChange={(e) => setFilter(e.target.value as any)}
                 className="border border-gray-300 rounded px-3 py-1 text-sm"
               >
@@ -190,9 +151,16 @@ export default function Dashboard() {
 
         <div className="divide-y divide-gray-200">
           {filteredHistory.map((item) => (
-            <div key={item.id} className="p-6 flex items-center justify-between hover:bg-gray-50">
+            <div
+              key={item.id}
+              className="p-6 flex items-center justify-between hover:bg-gray-50"
+            >
               <div className="flex items-center gap-4">
-                <div className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(item.status)}`}>
+                <div
+                  className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                    item.status
+                  )}`}
+                >
                   {item.status.toUpperCase()}
                 </div>
                 <div>
@@ -220,8 +188,8 @@ export default function Dashboard() {
                 <Button variant="ghost" size="sm">
                   <Download className="w-4 h-4" />
                 </Button>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => handleRemoveItem(item.id)}
                 >
@@ -240,5 +208,5 @@ export default function Dashboard() {
         )}
       </div>
     </div>
-  )
+  );
 }

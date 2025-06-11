@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
@@ -45,50 +45,90 @@ export default function FileUploader() {
     elapsedTime: 0
   });
 
+  // Используем useRef для хранения ссылки на интервал
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const progressRef = useRef(0);
+
   const API_BASE = 'http://localhost:5000';
 
-  // Симуляция прогресса сканирования
+  // Обновляем ref когда progress меняется
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    progressRef.current = progress;
+  }, [progress]);
+
+  // Симуляция прогресса сканирования - ИСПРАВЛЕННАЯ ВЕРСИЯ
+  useEffect(() => {
+    // Очищаем предыдущий интервал
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     
     if (status === 'uploading') {
       setProgress(0);
-      interval = setInterval(() => {
+      progressRef.current = 0;
+      
+      intervalRef.current = setInterval(() => {
         setProgress(prev => {
           const newProgress = prev >= 100 ? 100 : prev + 10;
           console.log('Upload progress:', newProgress);
           if (newProgress >= 100) {
-            clearInterval(interval);
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+            }
           }
           return newProgress;
         });
       }, 200);
+      
     } else if (status === 'scanning') {
       setProgress(0);
+      progressRef.current = 0;
       setScanProgress(prev => ({ ...prev, elapsedTime: 0 }));
       
-      interval = setInterval(() => {
+      intervalRef.current = setInterval(() => {
         setProgress(prev => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            return 100;
+          const newProgress = prev >= 100 ? 100 : prev + 2;
+          if (newProgress >= 100) {
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+            }
           }
-          return prev + 2;
+          return newProgress;
         });
         
         setScanProgress(prev => ({
           ...prev,
           elapsedTime: prev.elapsedTime + 1,
-          enginesCompleted: Math.min(Math.floor((progress / 100) * prev.totalEngines), prev.totalEngines),
+          // ИСПРАВЛЕНО: используем текущее значение progress через ref
+          enginesCompleted: Math.min(
+            Math.floor((progressRef.current / 100) * prev.totalEngines), 
+            prev.totalEngines
+          ),
           currentEngine: getRandomEngine()
         }));
       }, 1000);
     }
 
+    // Cleanup функция
     return () => {
-      if (interval) clearInterval(interval);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     };
-  }, [status, progress]);
+  }, [status]); // ИСПРАВЛЕНО: убрали progress из зависимостей
+
+  // Очистка при размонтировании компонента
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
 
   const getRandomEngine = () => {
     const engines = [
@@ -190,6 +230,12 @@ export default function FileUploader() {
   });
 
   const reset = () => {
+    // Очищаем интервал при сбросе
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
     setStatus('idle');
     setFile(null);
     setFileInfo(null);

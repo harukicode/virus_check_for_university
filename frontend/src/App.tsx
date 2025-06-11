@@ -5,10 +5,10 @@ import Dashboard from "./components/Dashboard";
 import { Button } from "./components/ui/button";
 import { Upload, BarChart3, Shield } from "lucide-react";
 
-type ActiveTab = 'scanner' | 'dashboard';
+type ActiveTab = "scanner" | "dashboard";
 
 function App() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('scanner');
+  const [activeTab, setActiveTab] = useState<ActiveTab>("scanner");
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -25,17 +25,17 @@ function App() {
             {/* Navigation Tabs */}
             <div className="flex items-center gap-4">
               <Button
-                variant={activeTab === 'scanner' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('scanner')}
+                variant={activeTab === "scanner" ? "default" : "ghost"}
+                onClick={() => setActiveTab("scanner")}
                 className="gap-2"
               >
                 <Upload className="w-4 h-4" />
                 Scanner
               </Button>
-              
+
               <Button
-                variant={activeTab === 'dashboard' ? 'default' : 'ghost'}
-                onClick={() => setActiveTab('dashboard')}
+                variant={activeTab === "dashboard" ? "default" : "ghost"}
+                onClick={() => setActiveTab("dashboard")}
                 className="gap-2"
               >
                 <BarChart3 className="w-4 h-4" />
@@ -48,18 +48,9 @@ function App() {
 
       {/* Main Content */}
       <main className="py-8">
-        {activeTab === 'scanner' && <FileUploader />}
-        {activeTab === 'dashboard' && <Dashboard />}
+        {activeTab === "scanner" && <FileUploader />}
+        {activeTab === "dashboard" && <Dashboard />}
       </main>
-
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-200 mt-12">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <div className="text-center text-gray-600">
-            <p>&copy; 2025 SecureScanner. Keep your files safe.</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }
