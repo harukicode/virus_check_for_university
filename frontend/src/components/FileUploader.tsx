@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import axios from 'axios';
 import { Button } from '@/components/ui/button';
 import { Upload, Loader2, AlertTriangle, Shield } from 'lucide-react';
+import { ScanningProgress } from '@/components/ScanningProgress';
+import FileInfoCard from '@/components/FileInfoCard';
 
 // Types - обновленные под новый API
 type ScanStatus = 'idle' | 'uploading' | 'scanning' | 'completed' | 'error';
@@ -21,17 +23,102 @@ type UploadResponse = {
   analysis_id: string;
 }
 
+interface FileInfo {
+  name: string;
+  size: number;
+  type: string;
+  lastModified: Date;
+  hash?: string;
+}
+
 export default function FileUploader() {
   const [status, setStatus] = useState<ScanStatus>('idle');
   const [file, setFile] = useState<File | null>(null);
+  const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [scanProgress, setScanProgress] = useState({
+    currentEngine: '',
+    enginesCompleted: 0,
+    totalEngines: 20,
+    elapsedTime: 0
+  });
 
   const API_BASE = 'http://localhost:5000';
+
+  // Симуляция прогресса сканирования
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (status === 'uploading') {
+      setProgress(0);
+      interval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return prev + 10;
+        });
+      }, 200);
+    } else if (status === 'scanning') {
+      setProgress(0);
+      setScanProgress(prev => ({ ...prev, elapsedTime: 0 }));
+      
+      interval = setInterval(() => {
+        setProgress(prev => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            return 100;
+          }
+          return prev + 2;
+        });
+        
+        setScanProgress(prev => ({
+          ...prev,
+          elapsedTime: prev.elapsedTime + 1,
+          enginesCompleted: Math.min(Math.floor((progress / 100) * prev.totalEngines), prev.totalEngines),
+          currentEngine: getRandomEngine()
+        }));
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [status, progress]);
+
+  const getRandomEngine = () => {
+    const engines = [
+      'Windows Defender',
+      'Kaspersky',
+      'Norton',
+      'McAfee',
+      'Bitdefender',
+      'Avast',
+      'AVG',
+      'Trend Micro',
+      'Symantec',
+      'ESET'
+    ];
+    return engines[Math.floor(Math.random() * engines.length)];
+  };
 
   const uploadFile = async (fileToUpload: File) => {
     setStatus('uploading');
     setError(null);
+    setProgress(0);
+
+    // Создаем информацию о файле
+    const info: FileInfo = {
+      name: fileToUpload.name,
+      size: fileToUpload.size,
+      type: fileToUpload.type || 'application/octet-stream',
+      lastModified: new Date(fileToUpload.lastModified),
+      hash: generateMockHash()
+    };
+    setFileInfo(info);
 
     try {
       const formData = new FormData();
@@ -52,6 +139,12 @@ export default function FileUploader() {
     }
   };
 
+  const generateMockHash = () => {
+    return Array.from({ length: 32 }, () => 
+      Math.floor(Math.random() * 16).toString(16)
+    ).join('');
+  };
+
   const pollForResults = async (analysisId: string) => {
     const maxAttempts = 30; 
     let attempts = 0;
@@ -63,6 +156,7 @@ export default function FileUploader() {
         if (response.data.status === 'completed') {
           setReport(response.data);
           setStatus('completed');
+          setProgress(100);
           return;
         }
 
@@ -97,15 +191,23 @@ export default function FileUploader() {
   const reset = () => {
     setStatus('idle');
     setFile(null);
+    setFileInfo(null);
     setReport(null);
     setError(null);
+    setProgress(0);
+    setScanProgress({
+      currentEngine: '',
+      enginesCompleted: 0,
+      totalEngines: 20,
+      elapsedTime: 0
+    });
   };
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       <div className="text-center">
         <h1 className="text-3xl font-bold mb-2">Virus Scanner</h1>
-        <p className="text-muted-foreground">Upload a file to scan for malware</p>
+        <p className="text-gray-600">Upload a file to scan for malware</p>
       </div>
 
       {/* Upload Area */}
@@ -113,39 +215,57 @@ export default function FileUploader() {
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
-            isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary'
+            isDragActive ? 'border-black bg-gray-50' : 'border-gray-300 hover:border-black'
           }`}
         >
           <input {...getInputProps()} />
-          <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+          <Upload className="w-12 h-12 mx-auto mb-4 text-gray-500" />
           <p className="text-lg font-medium mb-2">
             {isDragActive ? 'Drop the file here' : 'Drag & drop a file here'}
           </p>
-          <p className="text-muted-foreground">or click to select a file</p>
-          <p className="text-sm text-muted-foreground mt-2">Max file size: 32MB</p>
+          <p className="text-gray-600">or click to select a file</p>
+          <p className="text-sm text-gray-500 mt-2">Max file size: 32MB</p>
         </div>
       )}
 
-      {/* Status Display */}
+      {/* File Info Card - показываем когда есть файл */}
+      {fileInfo && (status === 'uploading' || status === 'scanning' || status === 'completed') && (
+        <FileInfoCard
+          file={fileInfo}
+          scanProgress={{
+            status,
+            progress,
+            currentEngine: scanProgress.currentEngine,
+            enginesCompleted: scanProgress.enginesCompleted,
+            totalEngines: scanProgress.totalEngines,
+            elapsedTime: scanProgress.elapsedTime
+          }}
+          scanResult={report || undefined}
+        />
+      )}
+
+      {/* Scanning Progress - альтернативный вид для сканирования */}
+      {status === 'scanning' && (
+        <ScanningProgress
+          progress={progress}
+          currentEngine={scanProgress.currentEngine}
+          enginesCompleted={scanProgress.enginesCompleted}
+          totalEngines={scanProgress.totalEngines}
+        />
+      )}
+
+      {/* Status Display для uploading */}
       {status === 'uploading' && (
         <div className="text-center py-8">
-          <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-primary" />
+          <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-black" />
           <p className="text-lg font-medium">Uploading file...</p>
-          <p className="text-muted-foreground">{file?.name}</p>
-        </div>
-      )}
-
-      {status === 'scanning' && (
-        <div className="text-center py-8">
-          <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-primary" />
-          <p className="text-lg font-medium">Scanning file...</p>
-          <p className="text-muted-foreground">This may take up to a minute</p>
+          <p className="text-gray-600">{file?.name}</p>
         </div>
       )}
 
       {/* Results */}
       {status === 'completed' && report && (
-        <div className="border rounded-lg p-6">
+        <div className="border border-gray-200 rounded-lg p-6">
           <div className="flex items-center gap-3 mb-4">
             {report.is_safe ? (
               <Shield className="w-8 h-8 text-green-600" />
@@ -156,7 +276,7 @@ export default function FileUploader() {
               <h3 className="text-xl font-semibold">
                 {report.is_safe ? 'File is Safe' : 'Threats Detected'}
               </h3>
-              <p className="text-muted-foreground">{file?.name}</p>
+              <p className="text-gray-600">{file?.name}</p>
             </div>
           </div>
 
@@ -185,7 +305,7 @@ export default function FileUploader() {
         <div className="text-center py-8">
           <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-600" />
           <p className="text-lg font-medium text-red-600">Error</p>
-          <p className="text-muted-foreground">{error}</p>
+          <p className="text-gray-600">{error}</p>
         </div>
       )}
 
