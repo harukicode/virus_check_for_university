@@ -10,33 +10,7 @@ import {
   Zap
 } from 'lucide-react'
 import { Progress } from './progress'
-
-interface FileInfo {
-  name: string
-  size: number
-  type: string
-  lastModified: Date
-  hash?: string
-}
-
-type ScanStatus = 'idle' | 'uploading' | 'scanning' | 'completed' | 'error'
-
-interface ScanProgress {
-  status: ScanStatus
-  progress: number
-  currentEngine?: string
-  enginesCompleted?: number
-  totalEngines?: number
-  elapsedTime?: number
-}
-
-interface ScanResult {
-  is_safe: boolean
-  threats_found: number
-  malicious: number
-  suspicious: number
-  clean: number
-}
+import type { FileInfo, ScanProgress, ScanResult } from '../types/scan'
 
 interface FileInfoCardProps {
   file: FileInfo
@@ -75,6 +49,7 @@ export default function FileInfoCard({ file, scanProgress, scanResult }: FileInf
           ? <CheckCircle className="w-5 h-5 text-green-500" />
           : <AlertTriangle className="w-5 h-5 text-red-500" />
       case 'error':
+      case 'rate_limited':
         return <AlertTriangle className="w-5 h-5 text-red-500" />
       default:
         return <Shield className="w-5 h-5 text-gray-500" />
@@ -91,8 +66,25 @@ export default function FileInfoCard({ file, scanProgress, scanResult }: FileInf
         return scanResult?.is_safe ? 'File is safe' : 'Threats detected'
       case 'error':
         return 'Scan failed'
+      case 'rate_limited':
+        return 'Rate limited'
       default:
         return 'Ready to scan'
+    }
+  }
+
+  const getStatusColor = () => {
+    switch (scanProgress.status) {
+      case 'completed':
+        return scanResult?.is_safe ? 'text-green-600' : 'text-red-600'
+      case 'error':
+      case 'rate_limited':
+        return 'text-red-600'
+      case 'uploading':
+      case 'scanning':
+        return 'text-blue-600'
+      default:
+        return 'text-gray-600'
     }
   }
 
@@ -109,13 +101,7 @@ export default function FileInfoCard({ file, scanProgress, scanResult }: FileInf
         </div>
         <div className="flex items-center gap-2 text-sm">
           {getStatusIcon()}
-          <span className={`font-medium ${
-            scanProgress.status === 'completed' && scanResult?.is_safe 
-              ? 'text-green-600' 
-              : scanProgress.status === 'completed' && !scanResult?.is_safe
-              ? 'text-red-600'
-              : 'text-gray-600'
-          }`}>
+          <span className={`font-medium ${getStatusColor()}`}>
             {getStatusText()}
           </span>
         </div>
@@ -173,25 +159,25 @@ export default function FileInfoCard({ file, scanProgress, scanResult }: FileInf
           <h4 className="font-medium mb-3">Scan Results</h4>
           <div className="grid grid-cols-3 gap-4 text-sm">
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{scanResult.clean}</div>
+              <div className="text-2xl font-bold text-green-600">{scanResult.clean || 0}</div>
               <div className="text-gray-500">Clean</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{scanResult.suspicious}</div>
+              <div className="text-2xl font-bold text-orange-600">{scanResult.suspicious || 0}</div>
               <div className="text-gray-500">Suspicious</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{scanResult.malicious}</div>
+              <div className="text-2xl font-bold text-red-600">{scanResult.malicious || 0}</div>
               <div className="text-gray-500">Malicious</div>
             </div>
           </div>
           
-          {scanResult.threats_found > 0 && (
+          {(scanResult.threats_found || 0) > 0 && (
             <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-center gap-2 text-red-800">
                 <AlertTriangle className="w-5 h-5" />
                 <span className="font-medium">
-                  {scanResult.threats_found} threat{scanResult.threats_found > 1 ? 's' : ''} detected
+                  {scanResult.threats_found} threat{(scanResult.threats_found || 0) > 1 ? 's' : ''} detected
                 </span>
               </div>
               <p className="text-sm text-red-700 mt-1">

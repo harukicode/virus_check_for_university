@@ -8,7 +8,6 @@ const Progress = React.forwardRef<
     max?: number
   }
 >(({ className, value = 0, max = 100, ...props }, ref) => {
-  // Убеждаемся, что percentage находится в диапазоне 0-100
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100)
   
   return (
