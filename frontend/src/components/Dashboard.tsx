@@ -303,7 +303,7 @@ Scan Duration: ${item.scanDuration}s
         </div>
       </div>
 
-      {/* Error Message */}
+      {/* Error Message
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center gap-3">
@@ -322,7 +322,7 @@ Scan Duration: ${item.scanDuration}s
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -362,7 +362,7 @@ Scan Duration: ${item.scanDuration}s
           </div>
         </div>
 
-        <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+        {/* <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 rounded-lg">
               <Clock className="w-6 h-6 text-purple-600" />
@@ -374,10 +374,10 @@ Scan Duration: ${item.scanDuration}s
               </p>
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
 
-      {/* Debug Section */}
+      {/* Debug Section
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
         <h3 className="font-medium text-yellow-800 mb-2">Debug Tools</h3>
         <div className="flex items-center gap-2 flex-wrap">
@@ -414,7 +414,7 @@ Scan Duration: ${item.scanDuration}s
             | State items: {history.length}
           </span>
         </div>
-      </div>
+      </div> */}
 
       {/* History Section */}
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">

@@ -1,4 +1,5 @@
-// src/components/FileUploader.tsx - Исправленная версия с правильным сохранением
+// frontend/src/components/FileUploader.tsx - ИСПРАВЛЕННАЯ ВЕРСИЯ
+
 import { useState, useEffect, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import axios from "axios";
@@ -8,7 +9,7 @@ import { ScanningProgress } from "@/components/ScanningProgress";
 import FileInfoCard from "@/components/FileInfoCard";
 import { ScanHistoryManager } from "@/utils/scanHistory";
 
-// Types
+// Types (те же что были)
 type ScanStatus =
   | "idle"
   | "uploading"
@@ -229,7 +230,7 @@ export default function FileUploader() {
     }
   };
 
-  // Функция для сохранения результата сканирования
+  // 🔥 ИСПРАВЛЕННАЯ функция для сохранения результата сканирования
   const saveScanResult = (
     reportData: ReportResponse,
     fileData: FileInfo,
@@ -241,23 +242,27 @@ export default function FileUploader() {
       console.log("📊 Report data:", reportData);
       console.log("⏱️ Duration:", duration);
 
-      // Проверяем, что у нас есть все необходимые данные
-      if (!fileData || !reportData) {
-        console.error("❌ Missing file or report data");
+      // 🔥 БОЛЕЕ МЯГКАЯ ПРОВЕРКА - проверяем только критичные поля
+      if (!fileData?.name || !reportData || reportData.is_safe === undefined) {
+        console.error("❌ Missing critical data:", {
+          hasFileName: !!fileData?.name,
+          hasReportData: !!reportData,
+          hasIsSafe: reportData?.is_safe !== undefined,
+        });
         return false;
       }
 
-      // Создаем объект для сохранения
+      // Создаем объект для сохранения с дефолтными значениями
       const scanData = {
         fileName: fileData.name,
-        fileSize: fileData.size,
-        fileType: fileData.type,
+        fileSize: fileData.size || 0,
+        fileType: fileData.type || "unknown",
         threatsFound: reportData.threats_found || 0,
         enginesCount: reportData.engines_count || 0,
         malicious: reportData.malicious || 0,
         suspicious: reportData.suspicious || 0,
         clean: reportData.clean || 0,
-        scanDuration: duration,
+        scanDuration: duration || 0,
       };
 
       console.log("💾 Saving scan data:", scanData);
@@ -269,11 +274,11 @@ export default function FileUploader() {
         console.log("✅ Scan result saved successfully to localStorage!");
 
         // Отправляем событие для обновления Dashboard
-        window.dispatchEvent(
-          new CustomEvent("scanHistoryUpdated", {
-            detail: { action: "added", data: scanData },
-          })
-        );
+        const event = new CustomEvent("scanHistoryUpdated", {
+          detail: { action: "added", data: scanData },
+        });
+        window.dispatchEvent(event);
+        console.log("📡 Event dispatched for dashboard update");
 
         return true;
       } else {
@@ -311,7 +316,7 @@ export default function FileUploader() {
       return;
     }
 
-    // Create file info
+    // 🔥 СОЗДАЕМ И СОХРАНЯЕМ fileInfo СРАЗУ ПОСЛЕ ВЫБОРА ФАЙЛА
     const info: FileInfo = {
       name: fileToUpload.name,
       size: fileToUpload.size,
@@ -319,7 +324,9 @@ export default function FileUploader() {
       lastModified: new Date(fileToUpload.lastModified),
       hash: generateMockHash(),
     };
-    setFileInfo(info);
+
+    console.log("📁 Setting file info:", info);
+    setFileInfo(info); // Сохраняем fileInfo в state
 
     try {
       setDebugInfo("Uploading file to VirusTotal...");
@@ -344,7 +351,9 @@ export default function FileUploader() {
 
       setDebugInfo(`File uploaded successfully. Analysis ID: ${newAnalysisId}`);
       setStatus("scanning");
-      await pollForResults(newAnalysisId);
+
+      // 🔥 ПЕРЕДАЕМ fileInfo в pollForResults
+      await pollForResults(newAnalysisId, info);
     } catch (err: any) {
       console.error("Upload error:", err);
 
@@ -383,7 +392,11 @@ export default function FileUploader() {
     ).join("");
   };
 
-  const pollForResults = async (currentAnalysisId: string) => {
+  // 🔥 ИСПРАВЛЕННАЯ функция pollForResults - принимает fileInfo как параметр
+  const pollForResults = async (
+    currentAnalysisId: string,
+    currentFileInfo?: FileInfo
+  ) => {
     const maxAttempts = 60;
     let attempts = 0;
 
@@ -411,16 +424,21 @@ export default function FileUploader() {
           setProgress(100);
           setDebugInfo("Scan completed successfully!");
 
-          // 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ: Сохраняем результат в localStorage
-          if (fileInfo && response.data.is_safe !== undefined) {
+          // 🔥 ИСПОЛЬЗУЕМ ПЕРЕДАННЫЙ fileInfo ИЛИ ИЗ STATE
+          const finalFileInfo = currentFileInfo || fileInfo;
+
+          console.log("📋 Final file info for saving:", finalFileInfo);
+          console.log("📊 Response data:", response.data);
+
+          if (finalFileInfo && response.data.is_safe !== undefined) {
             const scanDuration = Math.floor(
               (Date.now() - scanStartTime) / 1000
             );
 
-            console.log("📝 Saving completed scan result...");
+            console.log("📝 All data ready, saving scan result...");
             const saveSuccess = saveScanResult(
               response.data,
-              fileInfo,
+              finalFileInfo,
               scanDuration
             );
 
@@ -430,9 +448,13 @@ export default function FileUploader() {
               setDebugInfo("⚠️ Scan completed but failed to save to history");
             }
           } else {
-            console.warn(
-              "⚠️ Missing file info or scan result, cannot save to history"
-            );
+            console.warn("⚠️ Missing file info or scan result:", {
+              hasFileInfo: !!finalFileInfo,
+              hasIsSafe: response.data.is_safe !== undefined,
+              fileInfo: finalFileInfo,
+              responseData: response.data,
+            });
+            setDebugInfo("⚠️ Scan completed but cannot save - missing data");
           }
 
           return;
@@ -523,44 +545,33 @@ export default function FileUploader() {
     checkRateLimitStatus();
   };
 
+  // 🔥 ДОБАВЛЯЕМ КНОПКУ ДЛЯ ТЕСТИРОВАНИЯ localStorage
+  const testLocalStorage = () => {
+    console.log("🧪 Testing localStorage...");
+
+    // Добавляем тестовые данные
+    ScanHistoryManager.addTestData();
+
+    // Проверяем что сохранилось
+    const history = ScanHistoryManager.getHistory();
+    console.log("📊 Current history:", history);
+
+    // Отправляем событие обновления
+    window.dispatchEvent(
+      new CustomEvent("scanHistoryUpdated", {
+        detail: { action: "test", data: history },
+      })
+    );
+
+    setDebugInfo(`✅ Test data added! History count: ${history.length}`);
+  };
+
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       <div className="text-center">
         <h1 className="text-3xl font-bold mb-2">Virus Scanner</h1>
         <p className="text-gray-600">Upload a file to scan for malware</p>
       </div>
-
-      {/* Rate Limit Warning */}
-      {status === "rate_limited" && countdown > 0 && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <Clock className="w-6 h-6 text-orange-600" />
-            <div>
-              <h3 className="font-medium text-orange-800">Rate Limited</h3>
-              <p className="text-sm text-orange-700">
-                Please wait {countdown} seconds before uploading another file.
-              </p>
-              <p className="text-xs text-orange-600 mt-1">
-                Free VirusTotal accounts can only process one file at a time.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Debug Info */}
-      {debugInfo && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <p className="text-sm text-blue-800">
-            <strong>Debug:</strong> {debugInfo}
-          </p>
-          {analysisId && (
-            <p className="text-xs text-blue-600 mt-1">
-              Analysis ID: {analysisId}
-            </p>
-          )}
-        </div>
-      )}
 
       {/* Upload Area */}
       {status === "idle" && (
@@ -628,7 +639,7 @@ export default function FileUploader() {
         </div>
       )}
 
-      {/* Results */}
+      {/* Results
       {status === "completed" && report && report.is_safe !== undefined && (
         <div className="border border-gray-200 rounded-lg p-6">
           <div className="flex items-center gap-3 mb-4">
@@ -684,7 +695,7 @@ export default function FileUploader() {
             </p>
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Error */}
       {status === "error" && (
