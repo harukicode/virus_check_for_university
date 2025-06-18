@@ -1,15 +1,21 @@
-// frontend/src/components/FileUploader.tsx - ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 import { useState, useEffect, useRef } from "react";
 import { useDropzone } from "react-dropzone";
 import axios from "axios";
 import { Button } from "@/components/ui/button";
-import { Upload, Loader2, AlertTriangle, Shield, Clock } from "lucide-react";
-import { ScanningProgress } from "@/components/ScanningProgress";
-import FileInfoCard from "@/components/FileInfoCard";
+import {
+  Upload,
+  AlertTriangle,
+  Clock,
+  CheckCircle,
+  Calendar,
+  HardDrive,
+  Zap,
+} from "lucide-react";
+import { Progress } from "@/components/progress";
 import { ScanHistoryManager } from "@/utils/scanHistory";
 
-// Types (те же что были)
+// Types
 type ScanStatus =
   | "idle"
   | "uploading"
@@ -49,15 +55,6 @@ interface RateLimitStatus {
   min_interval: number;
 }
 
-interface ScanResult {
-  is_safe: boolean;
-  threats_found: number;
-  malicious: number;
-  suspicious: number;
-  clean: number;
-  engines_count?: number;
-}
-
 export default function FileUploader() {
   const [status, setStatus] = useState<ScanStatus>("idle");
   const [file, setFile] = useState<File | null>(null);
@@ -81,7 +78,6 @@ export default function FileUploader() {
   // Debug info
   const [debugInfo, setDebugInfo] = useState<string>("");
   const [analysisId, setAnalysisId] = useState<string>("");
-
   const [scanStartTime, setScanStartTime] = useState<number>(0);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -90,11 +86,49 @@ export default function FileUploader() {
 
   const API_BASE = "http://localhost:5000";
 
+  // Utility functions
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  };
+
+  const formatTime = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
+
+  const getRandomEngine = () => {
+    const engines = [
+      "Windows Defender",
+      "Kaspersky",
+      "Norton",
+      "McAfee",
+      "Bitdefender",
+      "Avast",
+      "AVG",
+      "Trend Micro",
+      "Symantec",
+      "ESET",
+    ];
+    return engines[Math.floor(Math.random() * engines.length)];
+  };
+
+  const generateMockHash = () => {
+    return Array.from({ length: 32 }, () =>
+      Math.floor(Math.random() * 16).toString(16)
+    ).join("");
+  };
+
+  // Effects
   useEffect(() => {
     progressRef.current = progress;
   }, [progress]);
 
-  // Check rate limit status on component mount
   useEffect(() => {
     checkRateLimitStatus();
   }, []);
@@ -185,22 +219,6 @@ export default function FileUploader() {
     };
   }, []);
 
-  const getRandomEngine = () => {
-    const engines = [
-      "Windows Defender",
-      "Kaspersky",
-      "Norton",
-      "McAfee",
-      "Bitdefender",
-      "Avast",
-      "AVG",
-      "Trend Micro",
-      "Symantec",
-      "ESET",
-    ];
-    return engines[Math.floor(Math.random() * engines.length)];
-  };
-
   const checkRateLimitStatus = async () => {
     try {
       const response = await axios.get<RateLimitStatus>(`${API_BASE}/status`);
@@ -230,7 +248,6 @@ export default function FileUploader() {
     }
   };
 
-  // 🔥 ИСПРАВЛЕННАЯ функция для сохранения результата сканирования
   const saveScanResult = (
     reportData: ReportResponse,
     fileData: FileInfo,
@@ -238,21 +255,12 @@ export default function FileUploader() {
   ) => {
     try {
       console.log("🔄 Attempting to save scan result to localStorage...");
-      console.log("📄 File data:", fileData);
-      console.log("📊 Report data:", reportData);
-      console.log("⏱️ Duration:", duration);
 
-      // 🔥 БОЛЕЕ МЯГКАЯ ПРОВЕРКА - проверяем только критичные поля
       if (!fileData?.name || !reportData || reportData.is_safe === undefined) {
-        console.error("❌ Missing critical data:", {
-          hasFileName: !!fileData?.name,
-          hasReportData: !!reportData,
-          hasIsSafe: reportData?.is_safe !== undefined,
-        });
+        console.error("❌ Missing critical data");
         return false;
       }
 
-      // Создаем объект для сохранения с дефолтными значениями
       const scanData = {
         fileName: fileData.name,
         fileSize: fileData.size || 0,
@@ -267,13 +275,11 @@ export default function FileUploader() {
 
       console.log("💾 Saving scan data:", scanData);
 
-      // Сохраняем в localStorage
       const success = ScanHistoryManager.addScanResult(scanData);
 
       if (success) {
         console.log("✅ Scan result saved successfully to localStorage!");
 
-        // Отправляем событие для обновления Dashboard
         const event = new CustomEvent("scanHistoryUpdated", {
           detail: { action: "added", data: scanData },
         });
@@ -292,7 +298,6 @@ export default function FileUploader() {
   };
 
   const uploadFile = async (fileToUpload: File) => {
-    // Check rate limit before uploading
     await checkRateLimitStatus();
 
     if (rateLimitInfo && !rateLimitInfo.can_upload) {
@@ -309,14 +314,12 @@ export default function FileUploader() {
     setProgress(0);
     setDebugInfo("");
 
-    // Test backend connection first
     const backendOk = await testBackendConnection();
     if (!backendOk) {
       setStatus("error");
       return;
     }
 
-    // 🔥 СОЗДАЕМ И СОХРАНЯЕМ fileInfo СРАЗУ ПОСЛЕ ВЫБОРА ФАЙЛА
     const info: FileInfo = {
       name: fileToUpload.name,
       size: fileToUpload.size,
@@ -326,7 +329,7 @@ export default function FileUploader() {
     };
 
     console.log("📁 Setting file info:", info);
-    setFileInfo(info); // Сохраняем fileInfo в state
+    setFileInfo(info);
 
     try {
       setDebugInfo("Uploading file to VirusTotal...");
@@ -352,7 +355,6 @@ export default function FileUploader() {
       setDebugInfo(`File uploaded successfully. Analysis ID: ${newAnalysisId}`);
       setStatus("scanning");
 
-      // 🔥 ПЕРЕДАЕМ fileInfo в pollForResults
       await pollForResults(newAnalysisId, info);
     } catch (err: any) {
       console.error("Upload error:", err);
@@ -386,13 +388,6 @@ export default function FileUploader() {
     }
   };
 
-  const generateMockHash = () => {
-    return Array.from({ length: 32 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
-    ).join("");
-  };
-
-  // 🔥 ИСПРАВЛЕННАЯ функция pollForResults - принимает fileInfo как параметр
   const pollForResults = async (
     currentAnalysisId: string,
     currentFileInfo?: FileInfo
@@ -424,7 +419,6 @@ export default function FileUploader() {
           setProgress(100);
           setDebugInfo("Scan completed successfully!");
 
-          // 🔥 ИСПОЛЬЗУЕМ ПЕРЕДАННЫЙ fileInfo ИЛИ ИЗ STATE
           const finalFileInfo = currentFileInfo || fileInfo;
 
           console.log("📋 Final file info for saving:", finalFileInfo);
@@ -448,19 +442,13 @@ export default function FileUploader() {
               setDebugInfo("⚠️ Scan completed but failed to save to history");
             }
           } else {
-            console.warn("⚠️ Missing file info or scan result:", {
-              hasFileInfo: !!finalFileInfo,
-              hasIsSafe: response.data.is_safe !== undefined,
-              fileInfo: finalFileInfo,
-              responseData: response.data,
-            });
+            console.warn("⚠️ Missing file info or scan result");
             setDebugInfo("⚠️ Scan completed but cannot save - missing data");
           }
 
           return;
         }
 
-        // Still processing
         if (attempts < maxAttempts) {
           setTimeout(poll, 2000);
         } else {
@@ -487,20 +475,6 @@ export default function FileUploader() {
     };
 
     poll();
-  };
-
-  // Convert ReportResponse to ScanResult for the FileInfoCard
-  const getScanResult = (): ScanResult | undefined => {
-    if (!report || report.is_safe === undefined) return undefined;
-
-    return {
-      is_safe: report.is_safe,
-      threats_found: report.threats_found || 0,
-      malicious: report.malicious || 0,
-      suspicious: report.suspicious || 0,
-      clean: report.clean || 0,
-      engines_count: report.engines_count || 0,
-    };
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -545,25 +519,59 @@ export default function FileUploader() {
     checkRateLimitStatus();
   };
 
-  // 🔥 ДОБАВЛЯЕМ КНОПКУ ДЛЯ ТЕСТИРОВАНИЯ localStorage
-  const testLocalStorage = () => {
-    console.log("🧪 Testing localStorage...");
+  // Status-specific rendering functions
+  const renderStatusIcon = () => {
+    switch (status) {
+      case "uploading":
+        return <Clock className="w-8 h-8 text-blue-500 animate-pulse" />;
+      case "scanning":
+        return <Zap className="w-8 h-8 text-yellow-500 animate-pulse" />;
+      case "completed":
+        return report?.is_safe ? (
+          <CheckCircle className="w-8 h-8 text-green-500" />
+        ) : (
+          <AlertTriangle className="w-8 h-8 text-red-500" />
+        );
+      case "error":
+      case "rate_limited":
+        return <AlertTriangle className="w-8 h-8 text-red-500" />;
+      default:
+        return <Upload className="w-12 h-12 text-gray-500" />;
+    }
+  };
 
-    // Добавляем тестовые данные
-    ScanHistoryManager.addTestData();
+  const renderStatusText = () => {
+    switch (status) {
+      case "uploading":
+        return "Uploading file...";
+      case "scanning":
+        return `Scanning with ${
+          scanProgress.currentEngine || "antivirus engines"
+        }...`;
+      case "completed":
+        return report?.is_safe ? "File is safe!" : "Threats detected!";
+      case "error":
+        return "Scan failed";
+      case "rate_limited":
+        return "Rate limited";
+      default:
+        return isDragActive ? "Drop the file here" : "Drag & drop a file here";
+    }
+  };
 
-    // Проверяем что сохранилось
-    const history = ScanHistoryManager.getHistory();
-    console.log("📊 Current history:", history);
-
-    // Отправляем событие обновления
-    window.dispatchEvent(
-      new CustomEvent("scanHistoryUpdated", {
-        detail: { action: "test", data: history },
-      })
-    );
-
-    setDebugInfo(`✅ Test data added! History count: ${history.length}`);
+  const getStatusColor = () => {
+    switch (status) {
+      case "completed":
+        return report?.is_safe ? "text-green-600" : "text-red-600";
+      case "error":
+      case "rate_limited":
+        return "text-red-600";
+      case "uploading":
+      case "scanning":
+        return "text-blue-600";
+      default:
+        return "text-gray-600";
+    }
   };
 
   return (
@@ -573,186 +581,185 @@ export default function FileUploader() {
         <p className="text-gray-600">Upload a file to scan for malware</p>
       </div>
 
-      {/* Upload Area */}
-      {status === "idle" && (
-        <div
-          {...getRootProps()}
-          className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
-            isDragActive
-              ? "border-black bg-gray-50"
-              : "border-gray-300 hover:border-black"
-          }`}
-        >
-          <input {...getInputProps()} />
-          <Upload className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-          <p className="text-lg font-medium mb-2">
-            {isDragActive ? "Drop the file here" : "Drag & drop a file here"}
-          </p>
-          <p className="text-gray-600">or click to select a file</p>
-          <p className="text-sm text-gray-500 mt-2">Max file size: 32MB</p>
+      {/* Main Upload/Scan Area */}
+      <div
+        {...(status === "idle" ? getRootProps() : {})}
+        className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
+          status === "idle"
+            ? isDragActive
+              ? "border-black bg-gray-50 cursor-pointer"
+              : "border-gray-300 hover:border-black cursor-pointer"
+            : status === "completed"
+            ? report?.is_safe
+              ? "border-green-300 bg-green-50"
+              : "border-red-300 bg-red-50"
+            : status === "error" || status === "rate_limited"
+            ? "border-red-300 bg-red-50"
+            : "border-blue-300 bg-blue-50"
+        }`}
+      >
+        {status === "idle" && <input {...getInputProps()} />}
 
-          {rateLimitInfo && (
-            <p className="text-xs text-gray-500 mt-2">
-              {rateLimitInfo.can_upload
-                ? "✓ Ready to upload"
-                : `⏳ Wait ${rateLimitInfo.wait_time_seconds}s`}
-            </p>
-          )}
-        </div>
-      )}
+        {/* Icon */}
+        <div className="mb-4 ml-64">{renderStatusIcon()}</div>
 
-      {/* File Info Card */}
-      {fileInfo &&
-        (status === "uploading" ||
-          status === "scanning" ||
-          status === "completed") && (
-          <FileInfoCard
-            file={fileInfo}
-            scanProgress={{
-              status,
-              progress,
-              currentEngine: scanProgress.currentEngine,
-              enginesCompleted: scanProgress.enginesCompleted,
-              totalEngines: scanProgress.totalEngines,
-              elapsedTime: scanProgress.elapsedTime,
-            }}
-            scanResult={getScanResult()}
-          />
+        {/* Status Text */}
+        <p className={`text-lg font-medium mb-2 ${getStatusColor()}`}>
+          {renderStatusText()}
+        </p>
+
+        {/* File Info */}
+        {fileInfo && status !== "idle" && (
+          <div className="mb-4 text-sm text-gray-600">
+            <p className="font-medium truncate">{fileInfo.name}</p>
+            <div className="flex items-center justify-center gap-4 mt-2">
+              <span className="flex items-center gap-1">
+                <HardDrive className="w-3 h-3" />
+                {formatFileSize(fileInfo.size)}
+              </span>
+              <span className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                {fileInfo.lastModified.toLocaleDateString()}
+              </span>
+            </div>
+          </div>
         )}
 
-      {/* Scanning Progress */}
-      {status === "scanning" && (
-        <ScanningProgress
-          progress={progress}
-          currentEngine={scanProgress.currentEngine}
-          enginesCompleted={scanProgress.enginesCompleted}
-          totalEngines={scanProgress.totalEngines}
-        />
-      )}
-
-      {/* Status Display for uploading */}
-      {status === "uploading" && (
-        <div className="text-center py-8">
-          <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin text-black" />
-          <p className="text-lg font-medium">Uploading file...</p>
-          <p className="text-gray-600">{file?.name}</p>
-        </div>
-      )}
-
-      {/* Results
-      {status === "completed" && report && report.is_safe !== undefined && (
-        <div className="border border-gray-200 rounded-lg p-6">
-          <div className="flex items-center gap-3 mb-4">
-            {report.is_safe ? (
-              <Shield className="w-8 h-8 text-green-600" />
-            ) : (
-              <AlertTriangle className="w-8 h-8 text-red-600" />
+        {/* Progress Bar */}
+        {(status === "uploading" || status === "scanning") && (
+          <div className="mb-4">
+            <Progress value={progress} className="h-3 mb-2" />
+            <p className="text-sm text-gray-600">{progress}% complete</p>
+            {status === "scanning" && (
+              <div className="text-xs text-gray-500 mt-1">
+                <p>
+                  {scanProgress.enginesCompleted} of {scanProgress.totalEngines}{" "}
+                  engines
+                  {scanProgress.elapsedTime > 0 &&
+                    ` • ${formatTime(scanProgress.elapsedTime)} elapsed`}
+                </p>
+              </div>
             )}
-            <div>
-              <h3 className="text-xl font-semibold">
-                {report.is_safe ? "File is Safe" : "Threats Detected"}
-              </h3>
-              <p className="text-gray-600">{file?.name}</p>
+          </div>
+        )}
+
+        {/* Scan Results */}
+        {status === "completed" && report && (
+          <div className="mt-4 space-y-4">
+            <div className="grid grid-cols-3 gap-4 text-sm">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {report.clean || 0}
+                </div>
+                <div className="text-gray-500">Clean</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600">
+                  {report.suspicious || 0}
+                </div>
+                <div className="text-gray-500">Suspicious</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-red-600">
+                  {report.malicious || 0}
+                </div>
+                <div className="text-gray-500">Malicious</div>
+              </div>
+            </div>
+
+            <div className="text-sm text-gray-600">
+              <p>Scanned by {report.engines_count || 0} engines</p>
+              {(report.threats_found || 0) > 0 && (
+                <p className="text-red-600 font-medium mt-1">
+                  ⚠️ {report.threats_found} threat
+                  {(report.threats_found || 0) > 1 ? "s" : ""} detected
+                </p>
+              )}
+            </div>
+
+            {report.is_safe && (
+              <div className="mt-4 p-3 bg-green-100 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-800">
+                  ✅ Scan completed and saved to history!
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  Go to Dashboard tab to view your scan history
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Error Display */}
+        {status === "error" && (
+          <div className="mt-4">
+            <p className="text-red-600 mb-4">{error}</p>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left text-sm">
+              <h4 className="font-medium text-yellow-800 mb-2">
+                Common Solutions:
+              </h4>
+              <ul className="text-yellow-700 space-y-1">
+                <li>
+                  • <strong>Error 409:</strong> Wait 2-3 minutes, then try again
+                </li>
+                <li>
+                  • <strong>Rate limit:</strong> Free accounts: 1 file at a time
+                </li>
+                <li>
+                  • <strong>Large files:</strong> Try files under 10MB first
+                </li>
+                <li>
+                  • <strong>Backend issues:</strong> Restart Flask server
+                </li>
+              </ul>
             </div>
           </div>
+        )}
 
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="font-medium">Engines scanned:</span>{" "}
-              {report.engines_count || 0}
-            </div>
-            <div
-              className={
-                (report.threats_found || 0) > 0
-                  ? "text-red-600"
-                  : "text-green-600"
-              }
-            >
-              <span className="font-medium">Threats found:</span>{" "}
-              {report.threats_found || 0}
-            </div>
-            <div className={(report.malicious || 0) > 0 ? "text-red-600" : ""}>
-              <span className="font-medium">Malicious:</span>{" "}
-              {report.malicious || 0}
-            </div>
-            <div
-              className={(report.suspicious || 0) > 0 ? "text-orange-600" : ""}
-            >
-              <span className="font-medium">Suspicious:</span>{" "}
-              {report.suspicious || 0}
-            </div>
-            <div className="text-green-600">
-              <span className="font-medium">Clean:</span> {report.clean || 0}
-            </div>
-          </div>
-
-          <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-            <p className="text-sm text-green-800">
-              ✅ Scan completed and saved to history!
+        {/* Rate Limited */}
+        {status === "rate_limited" && (
+          <div className="mt-4">
+            <p className="text-orange-600 mb-2">
+              Please wait {countdown} seconds before uploading another file
             </p>
-            <p className="text-xs text-green-600 mt-1">
-              Go to Dashboard tab to view your scan history
-            </p>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div
+                className="bg-orange-500 h-2 rounded-full transition-all duration-1000"
+                style={{
+                  width: `${
+                    (((rateLimitInfo?.min_interval || 60) - countdown) /
+                      (rateLimitInfo?.min_interval || 60)) *
+                    100
+                  }%`,
+                }}
+              />
+            </div>
           </div>
-        </div>
-      )} */}
+        )}
 
-      {/* Error */}
-      {status === "error" && (
-        <div className="text-center py-8">
-          <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-600" />
-          <p className="text-lg font-medium text-red-600">Error</p>
-          <p className="text-gray-600 mb-4">{error}</p>
-
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left text-sm">
-            <h4 className="font-medium text-yellow-800 mb-2">
-              Common Solutions:
-            </h4>
-            <ul className="text-yellow-700 space-y-1">
-              <li>
-                • <strong>Error 409:</strong> Wait 2-3 minutes, then try again
-              </li>
-              <li>
-                • <strong>Rate limit:</strong> Free accounts: 1 file at a time
-              </li>
-              <li>
-                • <strong>Large files:</strong> Try files under 10MB first
-              </li>
-              <li>
-                • <strong>Backend issues:</strong> Restart Flask server
-              </li>
-              <li>
-                • <strong>API key:</strong> Check your .env file
-              </li>
-            </ul>
+        {/* Idle state instructions */}
+        {status === "idle" && (
+          <div className="text-gray-600">
+            <p>or click to select a file</p>
+            <p className="text-sm text-gray-500 mt-2">Max file size: 32MB</p>
+            {rateLimitInfo && (
+              <p className="text-xs text-gray-500 mt-2">
+                {rateLimitInfo.can_upload
+                  ? "✓ Ready to upload"
+                  : `⏳ Wait ${rateLimitInfo.wait_time_seconds}s`}
+              </p>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Reset Button */}
       {(status === "completed" || status === "error") && (
         <div className="text-center">
-          <Button onClick={reset} variant="outline">
-            <Upload className="w-4 h-4 mr-2" />
+          <Button onClick={reset} variant="outline" className="gap-2">
+            <Upload className="w-4 h-4" />
             Scan Another File
           </Button>
-        </div>
-      )}
-
-      {/* Rate Limit Info */}
-      {rateLimitInfo && status === "idle" && (
-        <div className="text-center text-xs text-gray-500">
-          {rateLimitInfo.can_upload ? (
-            <p>
-              ✓ Ready to upload (last scan: {rateLimitInfo.last_request_ago}s
-              ago)
-            </p>
-          ) : (
-            <p>
-              ⏳ Please wait {rateLimitInfo.wait_time_seconds} seconds before
-              next upload
-            </p>
-          )}
         </div>
       )}
     </div>
