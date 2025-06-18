@@ -1,10 +1,8 @@
-// src/components/Dashboard.tsx - Fixed version with proper state updates
 import { useState, useEffect } from "react";
 import {
   Shield,
   AlertTriangle,
   FileCheck,
-  Clock,
   Eye,
   Download,
   Trash2,
@@ -12,8 +10,6 @@ import {
   Filter,
   RefreshCw,
   FileX,
-  Plus,
-  Bug,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScanHistoryManager, type ScanHistoryItem } from "@/utils/scanHistory";
@@ -257,13 +253,6 @@ Scan Duration: ${item.scanDuration}s
     }
   };
 
-  const handleDebugLocalStorage = () => {
-    ScanHistoryManager.debugLocalStorage();
-    // Also show current state
-    console.log("Current React state - history count:", history.length);
-    console.log("Current React state - history:", history);
-  };
-
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto p-6 flex items-center justify-center min-h-64">
@@ -303,26 +292,6 @@ Scan Duration: ${item.scanDuration}s
         </div>
       </div>
 
-      {/* Error Message
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="w-5 h-5 text-red-600" />
-            <div>
-              <h3 className="font-medium text-red-800">Error</h3>
-              <p className="text-sm text-red-700">{error}</p>
-              <Button
-                onClick={() => setError(null)}
-                variant="outline"
-                size="sm"
-                className="mt-2"
-              >
-                Dismiss
-              </Button>
-            </div>
-          </div>
-        </div>
-      )} */}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -361,60 +330,7 @@ Scan Duration: ${item.scanDuration}s
             </div>
           </div>
         </div>
-
-        {/* <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Clock className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Avg Scan Time</p>
-              <p className="text-2xl font-bold">
-                {stats.avgScanTime > 0 ? `${stats.avgScanTime}s` : "N/A"}
-              </p>
-            </div>
-          </div>
-        </div> */}
       </div>
-
-      {/* Debug Section
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <h3 className="font-medium text-yellow-800 mb-2">Debug Tools</h3>
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            onClick={handleAddTestData}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Test Data
-          </Button>
-          <Button
-            onClick={handleDebugLocalStorage}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <Bug className="w-4 h-4" />
-            Debug Console
-          </Button>
-          <Button
-            onClick={forceUpdate}
-            variant="outline"
-            size="sm"
-            className="gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Force Update
-          </Button>
-          <span className="text-sm text-yellow-700">
-            localStorage:{" "}
-            {typeof window !== "undefined" && !!window.localStorage ? "✓" : "✗"}{" "}
-            | State items: {history.length}
-          </span>
-        </div>
-      </div> */}
 
       {/* History Section */}
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
